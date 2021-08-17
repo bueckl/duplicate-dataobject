@@ -7,9 +7,11 @@ use SilverStripe\Forms\GridField\GridField;
 use SilverStripe\Forms\GridField\GridField_ActionProvider;
 use SilverStripe\Forms\GridField\GridField_ColumnProvider;
 use SilverStripe\Forms\GridField\GridField_FormAction;
+use TractorCow\Fluent\Model\Locale;
+use TractorCow\Fluent\State\FluentState;
 
-class GridFieldDuplicateAction 
-    implements 
+class GridFieldDuplicateAction
+    implements
         GridField_ColumnProvider,
         GridField_ActionProvider
 {
@@ -27,7 +29,7 @@ class GridFieldDuplicateAction
         return ['class' => 'grid-field__col-compact'];
     }
 
-    public function getColumnMetadata($gridField, $columnName) 
+    public function getColumnMetadata($gridField, $columnName)
     {
         if ($columnName == 'Actions')
         {
@@ -35,12 +37,12 @@ class GridFieldDuplicateAction
         }
     }
 
-    public function getColumnsHandled($gridField) 
+    public function getColumnsHandled($gridField)
     {
         return ['Actions'];
     }
 
-    public function getColumnContent($gridField, $record, $columnName) 
+    public function getColumnContent($gridField, $record, $columnName)
     {
         if(!$record->canEdit()) return;
 
@@ -58,17 +60,26 @@ class GridFieldDuplicateAction
         return $field->Field();
     }
 
-    public function getActions($gridField) 
+    public function getActions($gridField)
     {
         return ['duplicateobject'];
     }
 
-    public function handleAction(GridField $gridField, $actionName, $arguments, $data) 
+    public function handleAction(GridField $gridField, $actionName, $arguments, $data)
     {
         if($actionName == 'duplicateobject') {
             $item = $gridField->getList()->byID($arguments['RecordID']);
 
-            $clone = $item->duplicate();
+            if($locales = Locale::getLocales()) {
+                foreach ($locales as $locale) {
+                    FluentState::singleton()->withState(function (FluentState $newState) use ($item, $locale) {
+                        $newState->setLocale($locale->getLocale());
+                        $clone = $item->duplicate();
+                    });
+                }
+            } else {
+                $clone = $item->duplicate();
+            }
 
             Controller::curr()->getResponse()->setStatusCode(
                 200,
