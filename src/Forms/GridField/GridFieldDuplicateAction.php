@@ -7,6 +7,7 @@ use SilverStripe\Forms\GridField\GridField;
 use SilverStripe\Forms\GridField\GridField_ActionProvider;
 use SilverStripe\Forms\GridField\GridField_ColumnProvider;
 use SilverStripe\Forms\GridField\GridField_FormAction;
+use SilverStripe\Versioned\Versioned;
 use TractorCow\Fluent\Model\Locale;
 use TractorCow\Fluent\State\FluentState;
 
@@ -69,22 +70,40 @@ class GridFieldDuplicateAction
     {
         if($actionName == 'duplicateobject') {
             $item = $gridField->getList()->byID($arguments['RecordID']);
+            $clone = $item->duplicate();
+            $clone->flushCache(true);
 
-            if($locales = Locale::getLocales()) {
-                foreach ($locales as $locale) {
-                    FluentState::singleton()->withState(function (FluentState $newState) use ($item, $locale) {
-                        $newState->setLocale($locale->getLocale());
-                        $clone = $item->duplicate();
-                    });
+            //this is inpired from FluentAdminTrait -> copyFluent
+            $this->inEveryLocale(function () use ($clone) {
+                if ($clone->hasExtension(Versioned::class)) {
+                    $clone->writeToStage(Versioned::LIVE);
+                } else {
+                    $clone->forceChange();
+                    $clone->write();
                 }
-            } else {
-                $clone = $item->duplicate();
-            }
+            });
+
+            $clone->flushCache(true);
 
             Controller::curr()->getResponse()->setStatusCode(
                 200,
                 "{$item->Title} Duplicated"
             );
+        }
+    }
+
+    protected function inEveryLocale($doSomething)
+    {
+        foreach (Locale::getCached() as $locale) {
+            FluentState::singleton()->withState(function (
+                FluentState $newState
+            ) use (
+                $doSomething,
+                $locale
+            ) {
+                $newState->setLocale($locale->getLocale());
+                $doSomething($locale);
+            });
         }
     }
 }
