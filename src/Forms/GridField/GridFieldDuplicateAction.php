@@ -73,12 +73,13 @@ class GridFieldDuplicateAction
             $clone = $item->duplicate();
             $clone->flushCache(true);
 
-            //this is inpired from FluentAdminTrait -> copyFluent
-            $this->inEveryLocale(function () use ($clone) {
+            $this->inEveryLocale(function ($loc) use ($clone) {
                 if ($clone->hasExtension(Versioned::class)) {
-                    $clone->writeToStage(Versioned::LIVE);
+                    $clone->writeToStage(Versioned::DRAFT);
                 } else {
                     $clone->forceChange();
+                    $clone->Name = $clone->Name.'-'.$loc->getLocale();
+                    $clone->EventTitle = $clone->EventTitle.'-'.$loc->getLocale();
                     $clone->write();
                 }
             });
@@ -94,16 +95,19 @@ class GridFieldDuplicateAction
 
     protected function inEveryLocale($doSomething)
     {
-        foreach (Locale::getCached() as $locale) {
-            FluentState::singleton()->withState(function (
-                FluentState $newState
-            ) use (
-                $doSomething,
-                $locale
-            ) {
-                $newState->setLocale($locale->getLocale());
-                $doSomething($locale);
-            });
+        foreach (Locale::getLocales() as $locale) {
+            $currLocale = Locale::getCurrentLocale();
+            if($currLocale->getLocale() != $locale->getLocale()) {
+                FluentState::singleton()->withState(function (
+                    FluentState $newState
+                ) use (
+                    $doSomething,
+                    $locale
+                ) {
+                    $newState->setLocale($locale->getLocale());
+                    $doSomething($locale);
+                });
+            }
         }
     }
 }
