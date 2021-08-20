@@ -78,8 +78,9 @@ class GridFieldDuplicateAction
                     $clone->writeToStage(Versioned::DRAFT);
                 } else {
                     $clone->forceChange();
-                    $clone->Name = $clone->Name.'-'.$loc->getLocale();
-                    $clone->EventTitle = $clone->EventTitle.'-'.$loc->getLocale();
+                    if(isset($clone->Name)) {
+                        $clone->Name = $clone->Name.'-'.$loc->getLocale();
+                    }
                     $clone->write();
                 }
             });
